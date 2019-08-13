@@ -1,31 +1,79 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bin/compile <build-dir> <cache-dir>
 
+# fail fast
+set -e
 
-indent() {
-  sed -u 's/^/       /'
+# debug
+# set -x
+
+# parse and derive params
+BUILD_DIR=$1
+CACHE_DIR=$2
+LP_DIR=`cd $(dirname $0); cd ..; pwd`
+
+function error() {
+  echo " !     $*" >&2
+  exit 1
 }
 
-echo "-----> Found a .vendor_urls file"
+function topic() {
+  echo "-----> $*"
+}
 
-# Bail early but noisily
-if [ ! -s $1/.vendor_urls ]; then
-  echo ".vendor_urls empty. Skipping." | indent
-  exit 0
+function indent() {
+  c='s/^/       /'
+  case $(uname) in
+    Darwin) sed -l "$c";;
+    *)      sed -u "$c";;
+  esac
+}
+
+VENDOR_CACHE_DIR="$CACHE_DIR/vendorbinaries/cache"
+
+if [ -f $VENDOR_CACHE_DIR/Vendorfile ] && cmp -s $BUILD_DIR/Vendorfile $VENDOR_CACHE_DIR/Vendorfile ; then
+  # Old Vendorfile is the same as new
+  topic "Reusing cache"
+else
+  # Vendorfile changed or does not exist
+  topic "Detected Vendorfile changes, flushing cache"
+  rm -rf $VENDOR_CACHE_DIR
+  mkdir -p $VENDOR_CACHE_DIR
+  cp -f "$BUILD_DIR/Vendorfile" "$VENDOR_CACHE_DIR/Vendorfile"
 fi
 
-cd $1
+mkdir -p "$BUILD_DIR/.heroku/vendor"
 
-while read url; do
-  if [ -n "$url" ]; then # incase ensure_newline_at_eof_on_save is enabled
-    echo Vendoring $url | indent
+for PACKAGE in $(cat $BUILD_DIR/Vendorfile | grep -v -s -e '^#'); do
+  echo "Vendoring $PACKAGE" | indent
 
-    extension="${url##*.}" # http://stackoverflow.com/q/965053
-    flag="-z" # by default use gz
-    if [ "$extension" == "xz" ]; then flag="--xz"
-    elif [ "$extension" == "bz2" ]; then flag="--bzip2"
-    elif [ "$extension" == "tar" ]; then flag=""  # no compression
-    fi
-
-    curl -L --silent $url | tar x $flag
+  extension="${PACKAGE##*.}" # http://stackoverflow.com/q/965053
+  flag="-z" # by default use gz
+  if [ "$extension" == "xz" ]; then flag="--xz"
+  elif [ "$extension" == "bz2" ]; then flag="--bzip2"
+  elif [ "$extension" == "tar" ]; then flag=""  # no compression
   fi
-done < .vendor_urls
+
+  curl -L --silent $PACKAGE | tar x $flag -C "$BUILD_DIR/.heroku/vendor"
+done
+
+topic "Writing profile script"
+mkdir -p $BUILD_DIR/.profile.d
+cat <<EOF >$BUILD_DIR/.profile.d/000_vendorbinaries.sh
+export PATH="\$HOME/.heroku/vendor/bin:\$PATH"
+export LD_LIBRARY_PATH="\$HOME/.heroku/vendor/lib/x86_64-linux-gnu:\$HOME/.heroku/vendor/lib/i386-linux-gnu:\$HOME/.heroku/vendor/lib:\$LD_LIBRARY_PATH"
+export LIBRARY_PATH="\$HOME/.heroku/vendor/lib/x86_64-linux-gnu:\$HOME/.heroku/vendor/lib/i386-linux-gnu:\$HOME/.heroku/vendor/lib:\$LIBRARY_PATH"
+export INCLUDE_PATH="\$HOME/.heroku/vendor/include:\$HOME/.heroku/vendor/include/x86_64-linux-gnu:\$INCLUDE_PATH"
+export CPATH="\$INCLUDE_PATH"
+export CPPPATH="\$INCLUDE_PATH"
+EOF
+
+export PATH="$BUILD_DIR/.heroku/vendor/bin:$PATH"
+export LD_LIBRARY_PATH="$BUILD_DIR/.heroku/vendor/lib/x86_64-linux-gnu:$BUILD_DIR/.heroku/vendor/lib/i386-linux-gnu:$BUILD_DIR/.heroku/vendor/lib:$LD_LIBRARY_PATH"
+export LIBRARY_PATH="$BUILD_DIR/.heroku/vendor/lib/x86_64-linux-gnu:$BUILD_DIR/.heroku/vendor/lib/i386-linux-gnu:$BUILD_DIR/.heroku/vendor/lib:$LIBRARY_PATH"
+export INCLUDE_PATH="$BUILD_DIR/.heroku/vendor/include:$BUILD_DIR/.heroku/vendor/include/x86_64-linux-gnu:$INCLUDE_PATH"
+export CPATH="$INCLUDE_PATH"
+export CPPPATH="$INCLUDE_PATH"
+
+#give environment to later buildpacks
+export | grep -E -e ' (PATH|LD_LIBRARY_PATH|LIBRARY_PATH|INCLUDE_PATH|CPATH|CPPPATH)='  > "$LP_DIR/export"
