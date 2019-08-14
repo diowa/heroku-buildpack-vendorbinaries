@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bin/detect <build-dir>
 
-if [ -f $1/.vendor_urls ]; then
-    echo "VendorBinaries"
-    exit 0
+if [ -f $1/Vendorfile ]; then
+  echo "Vendor binaries" && exit 0
 else
-    exit 1
+  echo "no" && exit 1
 fi

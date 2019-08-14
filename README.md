@@ -1,24 +1,49 @@
-Heroku buildpack: Vendor Binaries
-=================================
+# heroku-buildpack-vendorbinaries
 
-This is a [Heroku buildpack](http://devcenter.heroku.com/articles/buildpacks) for vendoring binaries into your project. It doesn't do anything else, so to actually compile your app you should use [heroku-buildpack-multi](https://github.com/ddollar/heroku-buildpack-multi) to combine it with a real buildpack.
+Add support for vendor binaries during both compile and runtime.
 
-Usage
------
+This is a [Heroku buildpack](https://devcenter.heroku.com/articles/buildpacks)
+for vendoring binaries into your project.
 
-    $ ls
-    .vendor_urls
-    .buildpacks
+It is strongly inspired by [heroku-buildpack-apt](https://github.com/heroku/heroku-buildpack-apt) and [Heroku buildpack: Vendor Binaries](https://github.com/peterkeen/heroku-buildpack-vendorbinaries).
 
-    $ heroku create --stack cedar --buildpack http://github.com/dollar/heroku-buildpack-multi.git
+The problem with heroku-buildpack-apt is that sometimes libraries are old. If you
+need a new version or a library that is not available as an apt package, then
+this buildpack is for you.
 
-    $ git push heroku master
-    ...
-    -----> Heroku receiving push
-    -----> Fetching custom buildpack
-    -----> Found a .vendor_urls file
-           Vendoring https://s3.amazonaws.com/my-bucket/foo.tar.gz
-    ...
+## Usage
 
-The buildpack will detect that your app has a `.vendor_urls` file in the root. Each line in this file will be treated as a URL pointing at a tarball to fetch and extract into your application's root directory.
+This buildpack is not meant to be used on its own, and instead should be in used
+in combination with Heroku's [multiple buildpack support](https://devcenter.heroku.com/articles/using-multiple-buildpacks-for-an-app).
 
+Include a list of apt package names to be installed in a file named `Vendorfile`
+
+## Example
+
+This example will show how to provide GEOS and PROJ extensions to a Ruby based
+application.
+
+A repository using this approach is available at https://github.com/diowa/rgeo-sinatra
+
+#### Command-line
+
+To use the latest stable version:
+
+```
+heroku buildpacks:add --index 1 https://github.com/diowa/heroku-buildpack-vendorbinaries.git
+```
+
+#### Vendorfile
+
+    # List urls
+    https://vesuvius.herokuapp.com/libraries/geos-3.7.2-heroku.tar.gz
+    https://vesuvius.herokuapp.com/libraries/proj-5.2.0-heroku.tar.gz
+
+## Compile libraries for Heroku
+
+If you are interested in compiling your own libraries, take a look at
+[Vesuvius](https://github.com/tagliala/vesuvius)
+
+## License
+
+MIT
