@@ -36,8 +36,8 @@ heroku buildpacks:add --index 1 https://github.com/diowa/heroku-buildpack-vendor
 #### Vendorfile
 
     # List urls
-    https://vesuvius.herokuapp.com/libraries/geos-3.7.2-heroku.tar.gz
-    https://vesuvius.herokuapp.com/libraries/proj-5.2.0-heroku.tar.gz
+    https://vesuvius.herokuapp.com/libraries/geos-3.9.1-heroku.tar.gz
+    https://vesuvius.herokuapp.com/libraries/proj-8.0.1-heroku.tar.gz
 
 ## Compile libraries for Heroku
 
